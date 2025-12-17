@@ -1,0 +1,15 @@
+Generate a project schedule in STRICT JSON.
+
+DESCRIPTION: Build a chat app
+START: 2025-01-10
+END: 2025-01-20
+PEOPLE: 3
+
+Only output JSON like this:
+{
+  "tasks": [
+    {"task": "...", "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "assigned_to": "Person 1"}
+  ]
+}
+
+Give final schedule now:
