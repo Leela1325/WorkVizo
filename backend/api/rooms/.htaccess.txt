@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+</IfModule>
+
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+
+<IfModule mod_allowmethods.c>
+    AllowMethods GET POST OPTIONS
+</IfModule>
+
+<LimitExcept GET POST OPTIONS>
+    Require all denied
+</LimitExcept>

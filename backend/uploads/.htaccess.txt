@@ -1,0 +1,9 @@
+<IfModule mod_mime.c>
+    AddType image/jpeg .jpg .jpeg
+    AddType image/png .png
+    AddType application/pdf .pdf
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header set Content-Disposition inline
+</IfModule>

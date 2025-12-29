@@ -1,0 +1,43 @@
+
+You are an AI that updates project schedules.
+
+RULES:
+- Output ONLY ONE JSON object.
+- JSON MUST contain ONLY: { "tasks": [...] }
+- NEVER add fields like project_name, bos_token, metadata, comments, or explanations.
+- NEVER add markdown or code blocks.
+- Maintain valid JSON formatting.
+
+PROJECT DESCRIPTION:
+Updared desc
+
+OLD SCHEDULE JSON:
+{
+  "tasks": [
+    {
+      "id": "task1",
+      "name": "Task 1",
+      "start_date": "2023-02-20",
+      "end_date": "2023-02-22"
+    },
+    {
+      "id": "task2",
+      "name": "Task 2",
+      "start_date": "2023-02-21",
+      "end_date": "2023-02-23"
+    },
+    {
+      "id": "task3",
+      "name": "Task 3",
+      "start_date": "2023-02-22",
+      "end_date": "2023-02-24"
+    }
+  ],
+  "project_name": "Project Name",
+  "bos_token": "token"
+}
+
+USER INSTRUCTION:
+extend all tasks by 2 days
+
+Return ONLY the updated JSON:

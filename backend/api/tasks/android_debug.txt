@@ -1,0 +1,23 @@
+POST:
+Array
+(
+    [task_id] => 6
+    [user_id] => 5
+    [status] => in_progress
+    [description] => still pending
+)
+
+FILES:
+Array
+(
+    [proof] => Array
+        (
+            [name] => proof_1766733824328
+            [full_path] => proof_1766733824328
+            [type] => multipart/form-data
+            [tmp_name] => C:\xampp\tmp\php8B3E.tmp
+            [error] => 0
+            [size] => 475075
+        )
+
+)
