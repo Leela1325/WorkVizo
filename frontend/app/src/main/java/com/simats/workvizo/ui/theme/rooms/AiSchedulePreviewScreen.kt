@@ -1,5 +1,6 @@
 package com.simats.workvizo.ui.theme.rooms
 
+import android.app.DatePickerDialog
 import android.net.Uri
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -16,11 +17,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.google.gson.Gson
 import com.simats.workvizo.R
 import com.simats.workvizo.api.*
 import retrofit2.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun AiSchedulePreviewScreen(
@@ -32,6 +36,7 @@ fun AiSchedulePreviewScreen(
     roomPassword: String
 ) {
 
+    val context = LocalContext.current
     val poppins = FontFamily(Font(R.font.poppins_bold))
     val api = remember { RetrofitClient.instance.create(ApiService::class.java) }
 
@@ -39,7 +44,51 @@ fun AiSchedulePreviewScreen(
     var error by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
 
-    /* -------- LOAD AI TASKS FROM PREVIOUS SCREEN -------- */
+    /* ---------- PROJECT END DATE ---------- */
+    val projectEnd =
+        navController.previousBackStackEntry
+            ?.savedStateHandle
+            ?.get<String>("end_date") ?: ""
+
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+    val projectEndMillis =
+        remember(projectEnd) {
+            projectEnd.takeIf { it.isNotBlank() }?.let { sdf.parse(it)!!.time }
+        }
+
+    /* ---------- DATE PICKER ---------- */
+    fun openDatePicker(
+        currentValue: String,
+        onPicked: (String) -> Unit
+    ) {
+        val cal = Calendar.getInstance()
+
+        if (currentValue.matches(Regex("""\d{4}-\d{2}-\d{2}"""))) {
+            cal.timeInMillis = sdf.parse(currentValue)!!.time
+        }
+
+        val dialog = DatePickerDialog(
+            context,
+            { _, y, m, d ->
+                val mm = (m + 1).toString().padStart(2, '0')
+                val dd = d.toString().padStart(2, '0')
+                onPicked("$y-$mm-$dd")
+            },
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH),
+            cal.get(Calendar.DAY_OF_MONTH)
+        )
+
+        // ❌ no past dates
+        dialog.datePicker.minDate = System.currentTimeMillis()
+
+        // ❌ no beyond project end
+        projectEndMillis?.let { dialog.datePicker.maxDate = it }
+
+        dialog.show()
+    }
+
+    /* ---------- LOAD AI TASKS ---------- */
     LaunchedEffect(Unit) {
         val aiTasks =
             navController.currentBackStackEntry
@@ -51,16 +100,16 @@ fun AiSchedulePreviewScreen(
             tasks.addAll(
                 aiTasks.map {
                     MutableAiTask(
-                        taskName = it.task_name,
-                        startDate = it.start_date,
-                        endDate = it.end_date,
-                        assignedEmail = it.assigned_email
+                        it.task_name,
+                        it.start_date,
+                        it.end_date,
+                        it.assigned_email
                     )
+
                 }
             )
         }
     }
-
 
     Column(
         modifier = Modifier
@@ -79,11 +128,11 @@ fun AiSchedulePreviewScreen(
     ) {
 
         IconButton(onClick = { navController.popBackStack() }) {
-            Icon(Icons.Default.ArrowBack, contentDescription = null, tint = Color.White)
+            Icon(Icons.Default.ArrowBack, null, tint = Color.White)
         }
 
         Text(
-            text = "AI Generated Schedule",
+            "AI Generated Schedule",
             fontFamily = poppins,
             fontSize = 22.sp,
             color = Color.White
@@ -92,7 +141,24 @@ fun AiSchedulePreviewScreen(
         Spacer(Modifier.height(24.dp))
 
         tasks.forEachIndexed { index, task ->
-            TaskCardEditable(index + 1, task, poppins)
+            TaskCardEditable(
+                index = index + 1,
+                task = task,
+                poppins = poppins,
+                onStartDateClick = {
+                    openDatePicker(task.start_date) {
+                        task.start_date = it
+                        if (task.end_date.isNotEmpty() && task.end_date < task.start_date) {
+                            task.end_date = ""
+                        }
+                    }
+                },
+                onEndDateClick = {
+                    openDatePicker(task.end_date) {
+                        task.end_date = it
+                    }
+                }
+            )
             Spacer(Modifier.height(18.dp))
         }
 
@@ -121,7 +187,6 @@ fun AiSchedulePreviewScreen(
 
                 loading = true
 
-                /* -------- BUILD JSON FOR API -------- */
                 val tasksJson = Gson().toJson(
                     tasks.mapIndexed { index, task ->
                         mapOf(
@@ -134,7 +199,6 @@ fun AiSchedulePreviewScreen(
                     }
                 )
 
-                /* -------- SAVE TASKS TO DB -------- */
                 api.saveAiTasks(
                     roomId = roomId,
                     tasksJson = tasksJson
@@ -187,7 +251,9 @@ fun AiSchedulePreviewScreen(
 fun TaskCardEditable(
     index: Int,
     task: MutableAiTask,
-    poppins: FontFamily
+    poppins: FontFamily,
+    onStartDateClick: () -> Unit,
+    onEndDateClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -210,20 +276,21 @@ fun TaskCardEditable(
         Spacer(Modifier.height(12.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            EditableField(
-                "Start Date",
-                task.start_date,
-                { task.start_date = it },
-                poppins,
-                Modifier.weight(1f)
+
+            DateEditableField(
+                label = "Start Date",
+                value = task.start_date,
+                poppins = poppins,
+                onClick = onStartDateClick,
+                modifier = Modifier.weight(1f)
             )
 
-            EditableField(
-                "End Date",
-                task.end_date,
-                { task.end_date = it },
-                poppins,
-                Modifier.weight(1f)
+            DateEditableField(
+                label = "End Date",
+                value = task.end_date,
+                poppins = poppins,
+                onClick = onEndDateClick,
+                modifier = Modifier.weight(1f)
             )
         }
 
@@ -234,6 +301,39 @@ fun TaskCardEditable(
             task.assigned_email,
             { task.assigned_email = it },
             poppins
+        )
+    }
+}
+
+/* ---------------- DATE FIELD ---------------- */
+
+@Composable
+fun DateEditableField(
+    label: String,
+    value: String,
+    poppins: FontFamily,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            enabled = false,
+            label = { Text(label, fontFamily = poppins) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            textStyle = TextStyle(color = Color.White, fontFamily = poppins),
+            colors = OutlinedTextFieldDefaults.colors(
+                disabledBorderColor = Color.White.copy(0.7f),
+                disabledLabelColor = Color.White,
+                disabledTextColor = Color.White
+            ),
+            shape = RoundedCornerShape(14.dp)
         )
     }
 }
