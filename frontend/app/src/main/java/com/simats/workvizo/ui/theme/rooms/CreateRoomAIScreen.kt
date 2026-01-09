@@ -1,5 +1,7 @@
+
 package com.simats.workvizo.ui.theme.rooms
 
+import android.app.DatePickerDialog
 import android.net.Uri
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -12,6 +14,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -23,6 +26,7 @@ import androidx.navigation.NavController
 import com.simats.workvizo.R
 import com.simats.workvizo.api.*
 import retrofit2.*
+import java.util.*
 import java.util.regex.Pattern
 
 @Composable
@@ -32,6 +36,7 @@ fun CreateRoomAIScreen(
     userName: String
 ) {
 
+    val context = LocalContext.current
     val safeUserName = Uri.encode(userName)
     val poppins = FontFamily(Font(R.font.poppins_bold))
     val api = remember { RetrofitClient.instance.create(ApiService::class.java) }
@@ -53,6 +58,25 @@ fun CreateRoomAIScreen(
     var passErr by remember { mutableStateOf("") }
 
     var loading by remember { mutableStateOf(false) }
+
+    val calendar = Calendar.getInstance()
+
+    /* ---------- DATE PICKER (NO PAST DATES) ---------- */
+    fun openDatePicker(onPicked: (String) -> Unit) {
+        val dialog = DatePickerDialog(
+            context,
+            { _, y, m, d ->
+                val mm = (m + 1).toString().padStart(2, '0')
+                val dd = d.toString().padStart(2, '0')
+                onPicked("$y-$mm-$dd")
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+        dialog.datePicker.minDate = System.currentTimeMillis()
+        dialog.show()
+    }
 
     val dateRegex = remember {
         Pattern.compile("""\d{4}-\d{2}-\d{2}""")
@@ -82,12 +106,12 @@ fun CreateRoomAIScreen(
         }
 
         if (!dateRegex.matcher(startDate).matches()) {
-            startErr = "Invalid date format (YYYY-MM-DD)"
+            startErr = "Select valid start date"
             valid = false
         }
 
         if (!dateRegex.matcher(endDate).matches()) {
-            endErr = "Invalid date format (YYYY-MM-DD)"
+            endErr = "Select valid end date"
             valid = false
         }
 
@@ -141,53 +165,55 @@ fun CreateRoomAIScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            GradientInput(
-                label = "Project Name",
-                icon = Icons.Default.Title,
-                value = name,
-                error = nameErr,
-                font = poppins
-            ) { name = it }
+            GradientInput("Project Name", Icons.Default.Title, name, nameErr, poppins) {
+                name = it
+            }
 
             GradientInput(
-                label = "Project Description",
-                icon = Icons.Default.Description,
-                value = description,
-                error = descErr,
-                font = poppins,
+                "Project Description",
+                Icons.Default.Description,
+                description,
+                descErr,
+                poppins,
                 minLines = 4
             ) { description = it }
 
-            GradientInput(
-                label = "Start Date (YYYY-MM-DD)",
-                icon = Icons.Default.DateRange,
+            /* ---------- START DATE (CALENDAR) ---------- */
+            DateInputAI(
+                label = "Start Date",
                 value = startDate,
+                icon = Icons.Default.DateRange,
                 error = startErr,
                 font = poppins
-            ) { startDate = it }
+            ) {
+                openDatePicker { startDate = it }
+            }
 
-            GradientInput(
-                label = "End Date (YYYY-MM-DD)",
-                icon = Icons.Default.Event,
+            /* ---------- END DATE (CALENDAR) ---------- */
+            DateInputAI(
+                label = "End Date",
                 value = endDate,
+                icon = Icons.Default.Event,
                 error = endErr,
                 font = poppins
-            ) { endDate = it }
+            ) {
+                openDatePicker { endDate = it }
+            }
 
             GradientInput(
-                label = "Number of People",
-                icon = Icons.Default.People,
-                value = people,
-                error = peopleErr,
-                font = poppins
+                "Number of People",
+                Icons.Default.People,
+                people,
+                peopleErr,
+                poppins
             ) { people = it.filter(Char::isDigit) }
 
             GradientInput(
-                label = "Room Password",
-                icon = Icons.Default.Lock,
-                value = password,
-                error = passErr,
-                font = poppins,
+                "Room Password",
+                Icons.Default.Lock,
+                password,
+                passErr,
+                poppins,
                 isPassword = true
             ) { password = it }
 
@@ -222,30 +248,25 @@ fun CreateRoomAIScreen(
 
                             if (body.status == "success") {
 
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle
+                                    ?.set("project_description", description)
 
-                                    // 🔥 PASS DATA TO NEXT SCREEN
-                                    navController.currentBackStackEntry
-                                        ?.savedStateHandle
-                                        ?.set("project_description", description)
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle
+                                    ?.set("start_date", startDate)
 
-                                    navController.currentBackStackEntry
-                                        ?.savedStateHandle
-                                        ?.set("start_date", startDate)
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle
+                                    ?.set("end_date", endDate)
 
-                                    navController.currentBackStackEntry
-                                        ?.savedStateHandle
-                                        ?.set("end_date", endDate)
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle
+                                    ?.set("people_count", people.toInt())
 
-                                    navController.currentBackStackEntry
-                                        ?.savedStateHandle
-                                        ?.set("people_count", people.toInt())
-
-                                    // 🔥 NOW NAVIGATE
-                                    navController.navigate(
-                                        "ai_schedule_create/$userId/$safeUserName/${body.room_id}/${body.room_code}/$password"
-                                    )
-
-
+                                navController.navigate(
+                                    "ai_schedule_create/$userId/$safeUserName/${body.room_id}/${body.room_code}/$password"
+                                )
                             }
                         }
 
@@ -272,8 +293,53 @@ fun CreateRoomAIScreen(
     }
 }
 
-/* ---------- INPUT ---------- */
+/* ---------- DATE INPUT (AI SCREEN) ---------- */
+@Composable
+fun DateInputAI(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    error: String,
+    font: FontFamily,
+    onClick: () -> Unit
+) {
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                enabled = false,
+                label = { Text(label, fontFamily = font, color = Color.White) },
+                leadingIcon = { Icon(icon, null, tint = Color.White) },
+                placeholder = { Text("YYYY-MM-DD", color = Color.Gray) },
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = TextStyle(color = Color.White, fontFamily = font),
+                colors = TextFieldDefaults.colors(
+                    disabledContainerColor = Color.Transparent,
+                    disabledIndicatorColor =
+                        if (error.isNotEmpty()) Color(0xFFFF6B6B) else Color.White.copy(0.6f),
+                    disabledTextColor = Color.White,
+                    disabledLabelColor = Color.White,
+                    disabledLeadingIconColor = Color.White
+                ),
+                shape = RoundedCornerShape(18.dp)
+            )
+        }
 
+        if (error.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(error, color = Color(0xFFFF6B6B), fontSize = 12.sp, fontFamily = font)
+        }
+
+        Spacer(Modifier.height(14.dp))
+    }
+}
+
+/* ---------- NORMAL INPUT ---------- */
 @Composable
 fun GradientInput(
     label: String,
