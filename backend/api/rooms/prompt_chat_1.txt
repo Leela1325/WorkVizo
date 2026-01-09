@@ -1,0 +1,42 @@
+
+<|start_header_id|>user<|end_header_id|>
+
+You are the assistant for Project Room #1.
+
+PROJECT:
+Updared desc
+
+SCHEDULE:
+{
+  "tasks": [
+    {
+      "task": "Design and planning phase",
+      "start": "2025-01-10",
+      "end": "2025-01-12",
+      "assigned_to": "Person 1"
+    },
+    {
+      "task": "Develop login feature",
+      "start": "2025-01-12",
+      "end": "2025-01-15",
+      "assigned_to": "Person 1, Person 2"
+    },
+    {
+      "task": "Develop dashboard feature",
+      "start": "2025-01-15",
+      "end": "2025-01-18",
+      "assigned_to": "Person 1, Person 3"
+    },
+    {
+      "task": "Integrate login and dashboard features",
+      "start": "2025-01-18",
+      "end": "2025-01-20",
+      "assigned_to": "Person 1, Person 2, Person 3"
+    }
+  ]
+}
+
+QUESTION:
+Summarize my schedule
+
+<|eot_id|><|start_header_id|>assistant<|end_header_id|>
