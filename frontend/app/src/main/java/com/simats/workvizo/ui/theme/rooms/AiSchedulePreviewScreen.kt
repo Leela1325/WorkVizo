@@ -41,7 +41,8 @@ fun AiSchedulePreviewScreen(
     val api = remember { RetrofitClient.instance.create(ApiService::class.java) }
 
     val tasks = remember { mutableStateListOf<MutableAiTask>() }
-    var error by remember { mutableStateOf("") }
+    val taskErrors = remember { mutableStateMapOf<Int, String>() }
+
     var loading by remember { mutableStateOf(false) }
 
     /* ---------- PROJECT END DATE ---------- */
@@ -52,9 +53,7 @@ fun AiSchedulePreviewScreen(
 
     val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     val projectEndMillis =
-        remember(projectEnd) {
-            projectEnd.takeIf { it.isNotBlank() }?.let { sdf.parse(it)!!.time }
-        }
+        projectEnd.takeIf { it.isNotBlank() }?.let { sdf.parse(it)!!.time }
 
     /* ---------- DATE PICKER ---------- */
     fun openDatePicker(
@@ -79,10 +78,7 @@ fun AiSchedulePreviewScreen(
             cal.get(Calendar.DAY_OF_MONTH)
         )
 
-        // ❌ no past dates
         dialog.datePicker.minDate = System.currentTimeMillis()
-
-        // ❌ no beyond project end
         projectEndMillis?.let { dialog.datePicker.maxDate = it }
 
         dialog.show()
@@ -105,7 +101,6 @@ fun AiSchedulePreviewScreen(
                         it.end_date,
                         it.assigned_email
                     )
-
                 }
             )
         }
@@ -131,12 +126,7 @@ fun AiSchedulePreviewScreen(
             Icon(Icons.Default.ArrowBack, null, tint = Color.White)
         }
 
-        Text(
-            "AI Generated Schedule",
-            fontFamily = poppins,
-            fontSize = 22.sp,
-            color = Color.White
-        )
+        Text("AI Generated Schedule", fontFamily = poppins, fontSize = 22.sp, color = Color.White)
 
         Spacer(Modifier.height(24.dp))
 
@@ -144,26 +134,30 @@ fun AiSchedulePreviewScreen(
             TaskCardEditable(
                 index = index + 1,
                 task = task,
+                error = taskErrors[index],
                 poppins = poppins,
                 onStartDateClick = {
                     openDatePicker(task.start_date) {
                         task.start_date = it
                         if (task.end_date.isNotEmpty() && task.end_date < task.start_date) {
-                            task.end_date = ""
+                            taskErrors[index] = "End date cannot be before start date"
+                        } else {
+                            taskErrors.remove(index)
                         }
                     }
                 },
                 onEndDateClick = {
                     openDatePicker(task.end_date) {
                         task.end_date = it
+                        if (task.end_date < task.start_date) {
+                            taskErrors[index] = "End date cannot be before start date"
+                        } else {
+                            taskErrors.remove(index)
+                        }
                     }
                 }
             )
             Spacer(Modifier.height(18.dp))
-        }
-
-        if (error.isNotEmpty()) {
-            Text(error, color = Color.Red, fontFamily = poppins)
         }
 
         Spacer(Modifier.height(30.dp))
@@ -172,72 +166,69 @@ fun AiSchedulePreviewScreen(
             enabled = !loading,
             onClick = {
 
-                error = ""
+                taskErrors.clear()
 
-                if (tasks.any {
-                        it.task_name.isBlank() ||
-                                it.start_date.isBlank() ||
-                                it.end_date.isBlank() ||
-                                it.assigned_email.isBlank()
+                tasks.forEachIndexed { index, task ->
+                    when {
+                        task.task_name.isBlank() ->
+                            taskErrors[index] = "Task name required"
+
+                        task.start_date.isBlank() ->
+                            taskErrors[index] = "Start date required"
+
+                        task.end_date.isBlank() ->
+                            taskErrors[index] = "End date required"
+
+                        task.end_date < task.start_date ->
+                            taskErrors[index] = "End date cannot be before start date"
+
+                        task.assigned_email.isBlank() ->
+                            taskErrors[index] = "Assigned email required"
                     }
-                ) {
-                    error = "All task fields must be filled"
-                    return@Button
                 }
+
+                if (taskErrors.isNotEmpty()) return@Button
 
                 loading = true
 
                 val tasksJson = Gson().toJson(
-                    tasks.mapIndexed { index, task ->
+                    tasks.mapIndexed { i, t ->
                         mapOf(
-                            "task_no" to index + 1,
-                            "task_name" to task.task_name,
-                            "start_date" to task.start_date,
-                            "end_date" to task.end_date,
-                            "assigned_email" to task.assigned_email
+                            "task_no" to i + 1,
+                            "task_name" to t.task_name,
+                            "start_date" to t.start_date,
+                            "end_date" to t.end_date,
+                            "assigned_email" to t.assigned_email
                         )
                     }
                 )
 
-                api.saveAiTasks(
-                    roomId = roomId,
-                    tasksJson = tasksJson
-                ).enqueue(object : Callback<GenericResponse> {
+                api.saveAiTasks(roomId, tasksJson)
+                    .enqueue(object : Callback<GenericResponse> {
 
-                    override fun onResponse(
-                        call: Call<GenericResponse>,
-                        response: Response<GenericResponse>
-                    ) {
-                        loading = false
-
-                        if (!response.isSuccessful || response.body()?.status != "success") {
-                            error = response.body()?.message ?: "Failed to save tasks"
-                            return
+                        override fun onResponse(
+                            call: Call<GenericResponse>,
+                            response: Response<GenericResponse>
+                        ) {
+                            loading = false
+                            if (response.body()?.status == "success") {
+                                navController.navigate(
+                                    "room_created_success/$userId/${Uri.encode(userName)}/$roomCode/$roomPassword"
+                                )
+                            }
                         }
 
-                        navController.navigate(
-                            "room_created_success/$userId/${Uri.encode(userName)}/$roomCode/$roomPassword"
-                        )
-                    }
-
-                    override fun onFailure(call: Call<GenericResponse>, t: Throwable) {
-                        loading = false
-                        error = "Network error while saving tasks"
-                    }
-                })
+                        override fun onFailure(call: Call<GenericResponse>, t: Throwable) {
+                            loading = false
+                        }
+                    })
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(22.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF))
         ) {
             if (loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    color = Color.Black,
-                    strokeWidth = 2.dp
-                )
+                CircularProgressIndicator(modifier = Modifier.size(22.dp))
             } else {
                 Text("Create Room", fontFamily = poppins, color = Color.Black)
             }
@@ -251,6 +242,7 @@ fun AiSchedulePreviewScreen(
 fun TaskCardEditable(
     index: Int,
     task: MutableAiTask,
+    error: String?,
     poppins: FontFamily,
     onStartDateClick: () -> Unit,
     onEndDateClick: () -> Unit
@@ -302,6 +294,11 @@ fun TaskCardEditable(
             { task.assigned_email = it },
             poppins
         )
+
+        if (!error.isNullOrEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(error, color = Color.Red, fontSize = 12.sp)
+        }
     }
 }
 
@@ -316,9 +313,7 @@ fun DateEditableField(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
+        modifier = modifier.fillMaxWidth().clickable { onClick() }
     ) {
         OutlinedTextField(
             value = value,
@@ -367,3 +362,4 @@ fun EditableField(
         shape = RoundedCornerShape(14.dp)
     )
 }
+
