@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "147882547442",
+    "project_id": "workvizo",
+    "storage_bucket": "workvizo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:147882547442:android:5ae7b3bbe26f226585586b",
+        "android_client_info": {
+          "package_name": "com.simats.workvizo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmomXzrYo_fJ7uuKFSErY8nrJS7L3NNR0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
